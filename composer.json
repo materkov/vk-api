@@ -1,0 +1,12 @@
+{
+  "name": "vk/be",
+  "description": "description_text",
+  "minimum-stability": "dev",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Maks Materkov",
+      "email": "materkov@gmail.com"
+    }
+  ]
+}
