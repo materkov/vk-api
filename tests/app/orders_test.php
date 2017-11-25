@@ -12,7 +12,7 @@ function Test_App_CreateOrder()
     echo "Test_App_CreateOrder...\n";
 
     $orderId = 0;
-    $app = ['db' => Store_New()];
+    $app = ['db' => Store_New_Memory()];
     $user1Id = Store_AddUser($app['db'], 'user', '', false, false);
     $user2Id = Store_AddUser($app['db'], 'user-can-add', '', true, false);
 
@@ -125,7 +125,7 @@ function Test_App_OrdersList()
     echo "Test_App_OrdersList...\n";
 
     $orderId = 0;
-    $app = ['db' => Store_New()];
+    $app = ['db' => Store_New_Memory()];
     $user1Id = Store_AddUser($app['db'], 'user', '', false, false);
     $user2Id = Store_AddUser($app['db'], 'user-can-add', '', true, false);
     $id1 = Store_CreateOrder($app['db'], "1.00", 10, "1", "2");
@@ -146,7 +146,7 @@ function Test_App_GetOrder()
     echo "Test_App_GetOrder...\n";
 
     $orderId = 0;
-    $app = ['db' => Store_New()];
+    $app = ['db' => Store_New_Memory()];
     $id = Store_CreateOrder($app['db'], "1.00", 10, "1", "2");
 
     $order = App_GetOrder($app, $id);
@@ -161,7 +161,7 @@ function TestApp_Order_Execute()
 {
     echo "Test_App_GetOrder...\n";
 
-    $app = ['db' => Store_New()];
+    $app = ['db' => Store_New_Memory()];
     $user1Id = Store_AddUser($app['db'], "user1", "", false, false);
     $user2Id = Store_AddUser($app['db'], "user2", "", false, true);
     $orderId = Store_CreateOrder($app['db'], "1.00", 10, "1", "2");
@@ -244,6 +244,8 @@ function TestApp_Order_Execute()
 
     echo "[OK] All tests passed\n";
 }
+
+echo "Executing tests/app/orders_test.php\n";
 
 Test_App_CreateOrder();
 Test_App_OrdersList();

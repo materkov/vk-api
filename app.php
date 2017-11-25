@@ -1,8 +1,8 @@
 <?php
 
-require_once __DIR__ . '/api/Router.php';
-require_once __DIR__ . '/api/Api.php';
-require_once __DIR__ . '/store/store.php';
+require_once __DIR__ . '/api/router.php';
+require_once __DIR__ . '/api/api.php';
+require_once __DIR__ . '/store/persistent/persistent.php';
 require_once __DIR__ . '/app/App.php';
 
 $app = App_Init();

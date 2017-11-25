@@ -1,7 +1,6 @@
 <?php
 
-require_once __DIR__ . '/helpers.php';
-require_once __DIR__ . '/errors.php';
+require_once __DIR__ . '/../errors.php';
 
 function Store_FlushTransactions($db)
 {

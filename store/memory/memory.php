@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../errors.php';
 
-function Store_New()
+function Store_New_Memory()
 {
     $storage = [
         'users' => [],

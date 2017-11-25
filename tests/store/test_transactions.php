@@ -10,14 +10,14 @@
  * на третьем - то есть обернуть все операции в большую транзакцию нельзя.
  */
 
-require_once __DIR__ . '/../../store/store.php';
+require_once __DIR__ . '/../../store/persistent.php';
 
-$db = ['mysqli' => CreateStorePersistent()];
+$db = ['mysqli' => Store_New_Persistent()];
 
 function CheckFinal($db, $orderId, $orderSum)
 {
     $order = Store_GetOrder($db, $orderId);
-    if ($order['done'] !== 1) {
+    if ($order['done'] !== true) {
         die("[FAIL] Order should be done, actual: {$order['done']}");
     }
 
