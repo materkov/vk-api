@@ -52,9 +52,9 @@ function Api_Middleware_Auth(string $authToken): array
     }
     $authToken = substr($authToken, strlen(TOKEN_PREFIX));
 
-    $contractorId = App_GetContractorFromToken($authToken);
-    if ($contractorId) {
-        $authData['contractor_id'] = $contractorId;
+    $userId = App_GetUserIdFromToken($authToken);
+    if ($userId) {
+        $authData['user_id'] = $userId;
     }
 
     return $authData;

@@ -1,7 +1,7 @@
 <?php
 
-require_once __DIR__ . '/../store/Store.php';
 require_once __DIR__ . '/../utils/base64.php';
+require_once __DIR__ . '/errors.php';
 
 const ErrorBadOrderName = 'bad_order_name';
 const ErrorBadOrderPrice = 'bad_price';
@@ -9,165 +9,141 @@ const ErrorBadOrderDescription = 'bad_description';
 const ErrorInternal = 'internal_error';
 
 const TokenLifeTime = 60 * 60; // 1 hour
-const ORDER_COMMISSION = 1.23;
+const ORDER_COMMISSION = '0.12';
 
-function App_CreateOrder($app, int $customerId, string $name, string $description, string $price): array
+/**
+ * @param        $app
+ * @param int    $userId      User ID
+ * @param string $name        Order name
+ * @param string $description Order description
+ * @param string $price       Order price
+ * @param int    $orderId     Output value, order id if order was created successfully
+ *
+ * @return int APP_OK if successful, possible errors:
+ *             APP_ERR_BAD_ORDER_NAME, APP_ERR_BAD_ORDER_PRICE, APP_ERR_BAD_ORDER_DESC, APP_ERR_BAD_USER
+ *             APP_ERR_USER_CANT_CREATE_ORDER, APP_ERR_GENERAL
+ */
+function App_CreateOrder(&$app, int $userId, string $name, string $description, string $price, int &$orderId): int
 {
     if (mb_strlen($name) == 0 || mb_strlen($name) > 255) {
-        return [0, ErrorBadOrderName];
-    }
-    if (!preg_match("/^\\d+\\.\\d\\d$/", $price)) {
-        return [0, ErrorBadOrderPrice];
-    }
-    if (mb_strlen($description) == 0 || mb_strlen($description) > 20000) {
-        return [0, ErrorBadOrderDescription];
-    }
-    $orderId = Store_CreateOrder($app['db'], $price, $customerId, $name, "desc");
-    if (empty($orderId)) {
-        return [0, ErrorInternal];
+        return APP_ERR_BAD_ORDER_NAME;
+    } elseif (mb_strlen($description) == 0 || mb_strlen($description) > 10000) {
+        return APP_ERR_BAD_ORDER_DESC;
+    } elseif (!preg_match("/^\\d{1,10}\\.\\d\\d$/", $price)) {
+        return APP_ERR_BAD_ORDER_PRICE;
+    } elseif (bccomp($price, ORDER_COMMISSION, CALCULATION_PRECISE) !== 1) {
+        return APP_ERR_BAD_ORDER_PRICE;
     }
 
-    return $orderId;
-}
-
-function App_OrdersList($app, int $after, int $limit): array
-{
-    $orders = Store_GetWaitingOrders($app['db'], $after, $limit);
-    return [$orders, null];
-}
-
-function App_Order($app, int $id): array
-{
-    $order = Store_GetOrder($app['db'], $id);
-    return $order;
-}
-
-/**
- * @param mixed  $app      App instance
- * @param string $username Contractor username
- * @param string $password Contractor password
- *
- * @return string|null|false Return token if username&password is valid, false otherwise. Null means general error
- */
-function App_GetToken_Contractor($app, string $username, string $password)
-{
-    $contractor = Store_GetContractorByUsername($username);
-    if ($contractor === null) {
-        return null;
-    } elseif ($contractor === false) {
-        return false;
+    $user = Store_GetUserById($app['db'], $userId);
+    if ($user === null) {
+        return APP_ERR_BAD_USER;
+    } elseif ($user === false) {
+        return APP_ERR_GENERAL;
+    } elseif (!$user['can_create_order']) {
+        return APP_ERR_USER_CANT_CREATE_ORDER;
     }
 
-    if (!password_verify($password, $contractor['password_hash'])) {
-        return false;
+    $orderId = Store_CreateOrder($app['db'], $price, $userId, $name, $description);
+    if ($orderId === null) {
+        return APP_ERR_GENERAL;
     }
 
-    return createContractorToken($contractor['id'], $contractor['username']);
-}
-
-/**
- * @param mixed $app App instance
- * @param int   $id  Contractor id
- *
- * @return array|null Data about contractor, false if invalid token. Null - general error.
- */
-function App_GetContractorInfo($app, int $id)
-{
-    $data = Store_GetContractorById($id);
-    if ($data === null || $data === false) {
-        return null;
-    }
-
-    unset($data['password_hash']);
-
-    return $data;
+    return APP_OK;
 }
 
 /**
  * @param     $app
- * @param int $contractorId
- * @param int $orderId
+ * @param int $after Pagination, after
+ * @param int $limit Pagination, limit
  *
- * @return null|bool Null=General error, False=order not found, already executed, successfully executed
+ * @return array|null Array of orders, null on failure
  */
-function App_Order_Execute($app, int $contractorId, int $orderId): ?bool
+function App_OrdersList(&$app, int $after, int $limit): ?array
 {
-    // Get order, sum, check if done
-    $order = Store_GetOrder($app['db'], $orderId);
-    if ($order === null) {
+    $orders = Store_GetOrders_NotDone($app['db'], $after, $limit);
+    if ($orders === false) {
         return null;
-    } elseif ($order === false) {
-        return false;
+    } else {
+        return $orders;
     }
-    if ($order['done']) {
-        return false;
-    }
-
-    // Get order
-    $contractor = Store_GetContractorById($contractorId);
-    if ($contractor === false || $contractor === null) {
-        return null;
-    }
-
-    $orderSum = $order['sum'] - ORDER_COMMISSION;
-
-    // Create transaction
-    $ok = Store_CreateTransaction($app['db'], $orderId, $orderSum, $contractorId);
-    if ($ok == null) {
-        return null;
-    }
-
-    // Update orders table
-    Store_SaveOrderDone($app['db'], $orderId, true);
-
-    // Update contractor table
-    //Store_SaveContractorBalance($app['db'], $contractorId, )
-}
-
-function createContractorToken(int $id, string $username)
-{
-    $payload = base64url_encode(json_encode([
-        'type' => 'contractor',
-        'exp' => time() + TokenLifeTime,
-        'id' => $id,
-        'username' => $username,
-    ]));
-    $hash = hash_hmac('sha256', $payload, "secret-key");
-    return "$payload.$hash";
 }
 
 /**
- * @param string $token
+ * @param     $app
+ * @param int $id
  *
- * @return int|null Return contractor id (if token valid) or null otherwise
+ * @return array
  */
-function App_GetContractorFromToken(string $token): ?int
+function App_GetOrder($app, int $id): array
 {
-    $parts = explode(".", $token, 2);
-    if (count($parts) != 2) {
-        return null;
+    $order = Store_GetOrder($app['db'], $id);
+    if ($order === false) {
+
+    }
+    return $order;
+}
+
+const CALCULATION_PRECISE = 2;
+
+/**
+ * @param     $app
+ * @param int $userId
+ * @param int $orderId
+ *
+ * @return int APP_OK, APP_ERR_GENERAL, APP_ERR_ORDER_NOT_FOUND, APP_ERR_ORDER_ALREADY_EXECUTED
+ */
+function App_Order_Execute(&$app, int $userId, int $orderId): int
+{
+    $user = Store_GetUserById($app['db'], $userId);
+    if ($user === null) {
+        return APP_ERR_BAD_USER;
+    } elseif ($user === false) {
+        return APP_ERR_GENERAL;
+    }
+    if (!$user['can_execute_order']) {
+        return APP_ERR_USER_CANT_EXECUTE_ORDER;
     }
 
-    list($payload, $hash) = $parts;
-    if (empty($payload) || empty($hash)) {
-        return null;
+    // Get order, sum, check if done
+    $order = Store_GetOrder($app['db'], $orderId);
+    if ($order === null) {
+        return APP_ERR_BAD_ORDER;
+    } elseif ($order === false) {
+        return APP_ERR_GENERAL;
+    } elseif ($order['done']) {
+        return APP_ERR_ORDER_ALREADY_EXECUTED;
     }
 
-    if (hash_hmac('sha256', $payload, "secret-key") !== $hash) {
-        return null;
+    $orderSum = bcsub($order['price'], ORDER_COMMISSION, CALCULATION_PRECISE);
+    $returnResult = APP_OK;
+
+    $result = Store_CreateTransaction($app['db'], $orderId, $orderSum, $userId);
+    if ($result == STORAGE_ERR_TRANSACTION_EXISTS) {
+        $returnResult = APP_ERR_ORDER_ALREADY_EXECUTED;
+    } elseif ($result != STORAGE_OK) {
+        return APP_ERR_GENERAL;
     }
 
-    $data = json_decode(base64url_decode($payload), true);
-    if (empty($data['type']) || empty($data['exp']) || empty($data['id']) || empty($data['username'])) {
-        return null;
+    $balance = Store_GetTransactionUserBalance($app['db'], $userId);
+    if ($balance === false) {
+        return APP_ERR_GENERAL;
     }
 
-    if ($data['type'] != 'contractor') {
-        return null;
-    }
-    if (!is_int($data['exp']) || $data['exp'] < time()) {
-        return null;
+    $res = Store_SaveUserBalance($app['db'], $userId, $balance);
+    if (!$res) {
+        return APP_ERR_GENERAL;
     }
 
-    return $data['id'];
+    $res = Store_UpdateOrderDone($app['db'], $orderId, true);
+    if (!$res) {
+        return APP_ERR_GENERAL;
+    }
+
+    $res = Store_FinishTransaction($app['db'], $orderId);
+    if (!$res) {
+        return APP_ERR_GENERAL;
+    }
+
+    return $returnResult;
 }

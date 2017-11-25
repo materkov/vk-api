@@ -5,18 +5,28 @@ require_once __DIR__ . '/middleware.php';
 
 function Api_HandleOrderCreate($app, $authData, $url, $args, $body)
 {
-    [$id, $error] = App_CreateOrder($app, $args['user_id'] ?? 0, $args['name'] ?? "", $args['description'] ?? "",
-        $args['price'] ?? "");
-    if ($error) {
-        return [
-            400,
-            ['error' => $error],
-        ];
+    $orderId = 0;
+    $result = App_CreateOrder(
+        $app,
+        $authData['user_id'],
+        $body['name'],
+        $body['description'],
+        $body['price'],
+        $orderId
+    );
+    if ($result === APP_ERR_BAD_ORDER_NAME) {
+        return error("bad_order_name", "Bad order name");
+    } elseif ($result === APP_ERR_BAD_ORDER_DESC) {
+        return error("bad_order_desc", "Bad order deescription");
+    } elseif ($result === APP_ERR_BAD_ORDER_PRICE) {
+        return error("bad_order_price", "Bad order price");
+    } elseif ($result === APP_ERR_USER_CANT_CREATE_ORDER) {
+        return error("user_cant_create_order", "Current user cannot create orders");
+    } elseif ($result !== APP_OK) {
+        return generalError();
     }
-    return [
-        200,
-        ['id' => $id]
-    ];
+
+    return [200, ['id' => $orderId]];
 }
 
 function Api_HandleOrdersList($app, $authData, $url, $args, $body)
@@ -58,13 +68,13 @@ function Api_HandleOrdersList($app, $authData, $url, $args, $body)
 function Api_HandleOrder($app, $authData, $url, $args, $body)
 {
     preg_match("/^\\/orders\\/(\d+)$/", $url, $matches);
-    $order = App_Order($app, intval($matches[1]));
+    $order = App_GetOrder($app, intval($matches[1]));
     return [200, $order];
 }
 
 function Api_HandleOrder_Execute($app, $authData, $url, $args, $body)
 {
-    if (!$authData['contractor_id']) {
+    if (!$authData['user_id']) {
         return authError();
     }
 
@@ -72,13 +82,25 @@ function Api_HandleOrder_Execute($app, $authData, $url, $args, $body)
     if (!isset($matches[1]) || !intval($matches[1])) {
         return generalError();
     }
+    $orderId = (int)$matches[1];
 
-    $result = App_Order_Execute($app, $authData['contractor_id'], (int)$matches[1]);
+    $result = App_Order_Execute($app, $authData['user_id'], $orderId);
+    if ($result == APP_ERR_ORDER_ALREADY_EXECUTED) {
+        return error("order_already_executed", "This order already executed");
+    } elseif ($result == APP_ERR_BAD_ORDER) {
+        return error("order_not_found", "Order $orderId not found");
+    } elseif ($result == APP_ERR_USER_CANT_EXECUTE_ORDER) {
+        return error("user_cant_execute_order", "Current user cannot execute orders");
+    } elseif ($result != APP_OK) {
+        return generalError();
+    }
+
+    return [204, null];
 }
 
-function Api_HandleAuth_Contractor($app, $authData, $url, $args, $body)
+function Api_HandleAuth($app, $authData, $url, $args, $body)
 {
-    $result = App_GetToken_Contractor($app, $body['username'] ?? "", $body['password'] ?? "");
+    $result = App_GetToken($app, $body['username'] ?? "", $body['password'] ?? "");
     if ($result === null) {
         return generalError();
     } elseif ($result === false) {
@@ -87,16 +109,8 @@ function Api_HandleAuth_Contractor($app, $authData, $url, $args, $body)
     return [200, ['token' => $result]];
 }
 
-function Api_HandleContractor_Me($app, $authData, $url, $args, $body)
+function Api_Handle_Users_Me($app, $authData, $url, $args, $body)
 {
-    if (!$authData['contractor_id']) {
-        return authError();
-    }
-
-    $result = App_GetContractorInfo($app, $authData['contractor_id']);
-    if ($result === null) {
-        return generalError();
-    }
-
+    $result = App_GetUser($app, $authData['user_id']);
     return [200, $result];
 }

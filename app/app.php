@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/orders.php';
+require_once __DIR__ . '/users.php';
 
 function App_Init(): array
 {

@@ -10,8 +10,10 @@ function Api_Router(string $method, string $url): string
         return 'Api_HandleOrder';
     } else if ($method == "POST" && preg_match("/^\\/orders\\/\d+\\/exec$/", $url)) {
         return 'Api_HandleOrder_Execute';
-    } else if ($method == "POST" && $url == "/auth/contractor") {
-        return 'Api_HandleAuth_Contractor';
+    } else if ($method == "POST" && $url == "/auth") {
+        return 'Api_HandleAuth';
+    } else if ($method == "GET" && $url == "/users/me") {
+        return 'Api_Handle_Users_Me';
     } else if ($method == "GET" && $url == "/contractors/me") {
         return 'Api_HandleContractor_Me';
     } else {

@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/api/Router.php';
 require_once __DIR__ . '/api/Api.php';
+require_once __DIR__ . '/store/store.php';
 require_once __DIR__ . '/app/App.php';
 
 $app = App_Init();
@@ -34,5 +35,7 @@ if (!$funcName) {
 } else {
     list($responseStatus, $responseBody) = $funcName($app, $auth, $url, $args, $body);
     http_response_code($responseStatus);
-    echo json_encode($responseBody, JSON_PRETTY_PRINT);
+    if ($responseBody !== null) {
+        echo json_encode($responseBody, JSON_PRETTY_PRINT);
+    }
 }
