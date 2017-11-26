@@ -14,8 +14,11 @@ function App_Init(): array
 
 function App_Log(&$app, $entry)
 {
+    if (!getenv("LOG_PATH")) {
+        return;
+    }
     if (!$app['log_file']) {
-        $app['log_file'] = fopen('app.log', 'a');
+        $app['log_file'] = fopen(getenv("LOG_PATH"), 'a');
     }
     $entry = sprintf("[%s]: %s\n", date(DATE_RFC822), $entry);
     fwrite($app['log_file'], $entry);
