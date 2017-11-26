@@ -2,11 +2,15 @@
 
 require_once __DIR__ . '/../errors.php';
 
-function Store_FlushTransactions($db)
+function Store_FlushTransactions(&$db)
 {
-    mysqli_query($db['mysqli'], "TRUNCATE TABLE vk.user");
-    mysqli_query($db['mysqli'], "TRUNCATE TABLE vk.transaction");
-    mysqli_query($db['mysqli'], "TRUNCATE TABLE vk.transaction_user_balance");
+    if (!Store_Connect_MySQL($db)) {
+        return false;
+    }
+
+    mysqli_query($db['mysqli'], "DELETE FROM vk.user");
+    mysqli_query($db['mysqli'], "DELETE FROM vk.transaction");
+    mysqli_query($db['mysqli'], "DELETE FROM vk.transaction_user_balance");
 }
 
 /**
@@ -18,8 +22,12 @@ function Store_FlushTransactions($db)
  * @return int STORAGE_OK, STORAGE_ERROR or TRANSACTION_EXISTS
  *
  */
-function Store_CreateTransaction($db, int $orderId, string $orderSum, int $contractorId): int
+function Store_CreateTransaction(&$db, int $orderId, string $orderSum, int $contractorId): int
 {
+    if (!Store_Connect_MySQL($db)) {
+        return false;
+    }
+
     Store_SetLastError(null);
 
     $res = mysqli_begin_transaction($db['mysqli']);
@@ -71,8 +79,12 @@ function Store_CreateTransaction($db, int $orderId, string $orderSum, int $contr
  *
  * @return bool
  */
-function Store_FinishTransaction($db, int $orderId): bool
+function Store_FinishTransaction(&$db, int $orderId): bool
 {
+    if (!Store_Connect_MySQL($db)) {
+        return false;
+    }
+
     $sql = "UPDATE vk.transaction SET finished = 1 WHERE order_id = $orderId";
     $result = mysqli_query($db['mysqli'], $sql);
     if ($result === false) {
@@ -88,8 +100,12 @@ function Store_FinishTransaction($db, int $orderId): bool
  *
  * @return string|null User balance, false on error
  */
-function Store_GetTransactionUserBalance($db, int $userId): ?string
+function Store_GetTransactionUserBalance(&$db, int $userId): ?string
 {
+    if (!Store_Connect_MySQL($db)) {
+        return false;
+    }
+
     $sql = "SELECT balance FROM vk.transaction_user_balance WHERE user_id = $userId";
     $res = mysqli_query($db['mysqli'], $sql);
     if ($res === false) {
@@ -101,8 +117,12 @@ function Store_GetTransactionUserBalance($db, int $userId): ?string
     return $res['balance'] ?? '0.0';
 }
 
-function Store_GetTransactionByOrderId($db, int $orderId)
+function Store_GetTransactionByOrderId(&$db, int $orderId)
 {
+    if (!Store_Connect_MySQL($db)) {
+        return false;
+    }
+
     $sql = "SELECT * FROM vk.transaction WHERE order_id = $orderId";
     $res = mysqli_query($db['mysqli'], $sql);
     $res = mysqli_fetch_assoc($res);

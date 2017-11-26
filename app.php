@@ -3,7 +3,9 @@
 require_once __DIR__ . '/api/router.php';
 require_once __DIR__ . '/api/api.php';
 require_once __DIR__ . '/store/persistent/persistent.php';
-require_once __DIR__ . '/app/App.php';
+require_once __DIR__ . '/app/app.php';
+
+set_error_handler(function($errno, $errstr, $errfile, $errline) {});
 
 $app = App_Init();
 $body = [];
@@ -13,6 +15,8 @@ $args = $_GET;
 if ($method == "POST") {
     $body = json_decode(file_get_contents('php://input'), true);
 }
+
+App_Log($app, sprintf("%s %s", $method, $url));
 
 header('Access-Control-Allow-Origin: ' . (empty($_SERVER['HTTP_ORIGIN']) ? "*" : $_SERVER['HTTP_ORIGIN']));
 header('Access-Control-Allow-Headers: Accept, Authorization, Origin, Content-Type');
@@ -39,3 +43,5 @@ if (!$funcName) {
         echo json_encode($responseBody, JSON_PRETTY_PRINT);
     }
 }
+
+App_CloseLog($app);

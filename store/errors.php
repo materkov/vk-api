@@ -1,9 +1,5 @@
 <?php
 
-const StorageError = "storage error";
-const ContractorNotFound = "contractor not found";
-
-
 const STORAGE_OK = 0;
 const STORAGE_ERR_GENERAL = 1;
 const STORAGE_ERR_TRANSACTION_EXISTS = 2;
@@ -22,5 +18,5 @@ function Store_SetLastError($err)
 function Store_GetLastError()
 {
     global $lastError;
-    return $lastError;
+    return "storage error: " . $lastError;
 }

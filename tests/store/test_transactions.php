@@ -10,11 +10,11 @@
  * на третьем - то есть обернуть все операции в большую транзакцию нельзя.
  */
 
-require_once __DIR__ . '/../../store/persistent.php';
+require_once __DIR__ . '/../../store/persistent/persistent.php';
 
-$db = ['mysqli' => Store_New_Persistent()];
+$db = [];
 
-function CheckFinal($db, $orderId, $orderSum)
+function CheckFinal(&$db, $orderId, $orderSum)
 {
     $order = Store_GetOrder($db, $orderId);
     if ($order['done'] !== true) {
@@ -35,17 +35,17 @@ function CheckFinal($db, $orderId, $orderSum)
     }
 }
 
-function Setup($db)
+function Setup(&$db)
 {
     Store_FlushTransactions($db);
-    $contractorId = Store_CreateUser($db, "user1", "");
+    $contractorId = Store_CreateUser($db, "user1", "", true, true);
     $orderId = Store_CreateOrder($db, "45.11", $contractorId, "test order", "");
     $order = Store_GetOrder($db, $orderId);
 
     return [$contractorId, $orderId, $order];
 }
 
-function TestNormal($db)
+function TestNormal(&$db)
 {
     [$contractorId, $orderId, $order] = Setup($db);
 
@@ -58,7 +58,7 @@ function TestNormal($db)
     CheckFinal($db, $orderId, "45.11");
 }
 
-function RunFlow($db, $orderId, $order, $contractorId)
+function RunFlow(&$db, $orderId, $order, $contractorId)
 {
     Store_CreateTransaction($db, $orderId, $order['price'], $contractorId);
     $balance = Store_GetTransactionUserBalance($db, $contractorId);
@@ -67,7 +67,7 @@ function RunFlow($db, $orderId, $order, $contractorId)
     Store_FinishTransaction($db, $orderId);
 }
 
-function Test_Fail_CreateTransaction($db)
+function Test_Fail_CreateTransaction(&$db)
 {
     [$contractorId, $orderId, $order] = Setup($db);
 
@@ -79,7 +79,7 @@ function Test_Fail_CreateTransaction($db)
     CheckFinal($db, $orderId, "45.11");
 }
 
-function Test_Fail_GetUserBalance($db)
+function Test_Fail_GetUserBalance(&$db)
 {
     [$contractorId, $orderId, $order] = Setup($db);
 
@@ -92,7 +92,7 @@ function Test_Fail_GetUserBalance($db)
     CheckFinal($db, $orderId, "45.11");
 }
 
-function Test_Fail_SaveUserBalance($db)
+function Test_Fail_SaveUserBalance(&$db)
 {
     [$contractorId, $orderId, $order] = Setup($db);
 
@@ -106,7 +106,7 @@ function Test_Fail_SaveUserBalance($db)
     CheckFinal($db, $orderId, "45.11");
 }
 
-function Test_Fail_UpdateOrderDone($db)
+function Test_Fail_UpdateOrderDone(&$db)
 {
     [$contractorId, $orderId, $order] = Setup($db);
 
@@ -121,7 +121,7 @@ function Test_Fail_UpdateOrderDone($db)
     CheckFinal($db, $orderId, "45.11");
 }
 
-function Test_Fail_FinishTransaction($db)
+function Test_Fail_FinishTransaction(&$db)
 {
     [$contractorId, $orderId, $order] = Setup($db);
 

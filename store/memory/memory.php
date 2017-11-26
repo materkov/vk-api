@@ -154,3 +154,27 @@ function Store_GetTransactionByOrderId(&$db, int $orderId)
     };
     return null;
 }
+
+function Store_GetUserByUsername(&$db, string $username)
+{
+    foreach ($db['users'] as $user) {
+        if ($user['username'] === $username) {
+            return $user;
+        }
+    };
+    return null;
+}
+
+function Store_CreateUser(&$db, string $username, string $passwordHash, bool $canCreateOrder, bool $canExecuteOrder)
+{
+    $id = rand(1, getrandmax());
+    $db['users'][] = [
+        'username' => $username,
+        'password_hash' => $passwordHash,
+        'can_create_order' => (int)$canCreateOrder,
+        'can_execute_order' => (int)$canExecuteOrder,
+        'balance' => '0.0',
+        'id' => $id,
+    ];
+    return null;
+}

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../app/app.php';
+require_once __DIR__ . '/../utils/tokens.php';
 
 const TOKEN_PREFIX = "Bearer ";
 
@@ -11,17 +12,6 @@ function generalError()
         [
             'error' => 'internal_server_error',
             'error_description' => 'Internal server error. Please, try again later.'
-        ]
-    ];
-}
-
-function authError()
-{
-    return [
-        403,
-        [
-            'error' => 'auth_error',
-            'error_description' => 'Invalid (or expired) auth token'
         ]
     ];
 }
@@ -39,9 +29,7 @@ function error(string $error, string $errorDescription, int $status = 400)
 
 function Api_Middleware_Auth(string $authToken): array
 {
-    $authData = [
-        'contractor_id' => 0
-    ];
+    $authData = ['user_id' => 0];
 
     if ($authToken == "") {
         return $authData;
@@ -50,9 +38,9 @@ function Api_Middleware_Auth(string $authToken): array
     if (strpos($authToken, TOKEN_PREFIX) !== 0 || strlen($authToken) <= strlen(TOKEN_PREFIX)) {
         return $authData;
     }
-    $authToken = substr($authToken, strlen(TOKEN_PREFIX));
 
-    $userId = App_GetUserIdFromToken($authToken);
+    $authToken = substr($authToken, strlen(TOKEN_PREFIX));
+    $userId = Utils_GetUserIdFromToken($authToken, TOKEN_SECRET_KEY);
     if ($userId) {
         $authData['user_id'] = $userId;
     }
