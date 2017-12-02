@@ -95,6 +95,12 @@ php tests/functional/functional_test.php
 php tests/store/test_transactions.php
 ```
 
+Тесты, проверябщие работу кеша:
+```
+php tests/store/test_orderscache.php
+php tests/store/test_usercache.php
+```
+
 ## Структура БД
 Таблица order содержит заказы (id, название, описание, ID автора заказа, флаг выполненности, цена)
 
@@ -138,3 +144,17 @@ ON DUPLICATE KEY UPDATE balance = balance + $orderSum
 ## Финансовая математика
 Реализована через bcmath
 
+## Авторизация
+Для того чтобы не использовать обычные токены/сессии используется нечто похожее на JWT.
+Пример токена:
+```
+eyJjYW5fY3JlYXRlX29yZGVyIjpmYWxzZSwiY2FuX2V4ZWN1dGVfb3JkZXIiOmZhbHNlLCJleHAiOjE1MTE2MzA0NDIsImlkIjoxLCJ1c2VybmFtZSI6InVzZXIxIn0.a811972f3b81f30c668cfe30b0b828bf9f6adc0a59d5e10e9d1e244f4b61ef86
+```
+Первая часть - payload, вторая - подпись (HMAC SHA256). Если расшифровать payload
+получится следующее:
+```
+{"can_create_order":false,"can_execute_order":false,"exp":1511630442,"id":1,"username":"user1"}
+```
+
+Главный плюс - избавляемся от необходимости ходить в БД 
+для проверки токенов. Главный минус - токен невозможно "отозвать".

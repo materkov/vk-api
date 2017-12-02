@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../errors.php';
+require_once __DIR__ . '/users_cache.php';
 
 /**
  * @param        $db
@@ -22,6 +23,8 @@ function Store_SaveUserBalance(&$db, int $userId, string $balance): bool
         return false;
     }
 
+    Store_UsersCache_Invalidate($db, $userId);
+
     return true;
 }
 
@@ -40,14 +43,14 @@ function Store_CreateUser(&$db, string $username, string $passwordHash, bool $ca
         return false;
     }
 
-    $username = mysqli_real_escape_string($db['mysqli'], $username);
-    $passwordHash = mysqli_real_escape_string($db['mysqli'], $passwordHash);
-    $canCreateOrder = (int)$canCreateOrder;
-    $canExecuteOrder = (int)$canExecuteOrder;
+    $usernameEscaped = mysqli_real_escape_string($db['mysqli'], $username);
+    $passwordHashEscaped = mysqli_real_escape_string($db['mysqli'], $passwordHash);
+    $canCreateOrderInt = (int)$canCreateOrder;
+    $canExecuteOrderInt = (int)$canExecuteOrder;
 
     $sql = "
         INSERT INTO vk.user(username, password_hash, balance, can_create_order, can_execute_order) 
-        VALUES ('$username', '$passwordHash', '0.0', $canCreateOrder, $canExecuteOrder)
+        VALUES ('$usernameEscaped', '$passwordHashEscaped', '0.0', $canCreateOrderInt, $canExecuteOrderInt)
     ";
     $res = mysqli_query($db['mysqli'], $sql);
     if ($res === false) {
@@ -60,6 +63,15 @@ function Store_CreateUser(&$db, string $username, string $passwordHash, bool $ca
         Store_SetLastError("Invalid last insert id");
         return false;
     }
+
+    Store_UsersCache_Set($db, $lastId, [
+        'id' => $lastId,
+        'username' => $username,
+        'password_hash' => $passwordHash,
+        'balance' => '0.0',
+        'can_creaate_order' => $canCreateOrder,
+        'can_execute_order' => $canExecuteOrder,
+    ]);
 
     return $lastId;
 }
@@ -111,6 +123,11 @@ function Store_GetUserByUsername(&$db, string $username)
  */
 function Store_GetUserById(&$db, int $id)
 {
+    $cacheResult = Store_UsersCache_Get($db, $id);
+    if ($cacheResult !== null) {
+        return $cacheResult;
+    }
+
     if (!Store_Connect_MySQL($db)) {
         return false;
     }

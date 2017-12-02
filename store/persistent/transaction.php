@@ -9,8 +9,11 @@ function Store_FlushTransactions(&$db)
     }
 
     mysqli_query($db['mysqli'], "DELETE FROM vk.user");
+    mysqli_query($db['mysqli'], "DELETE FROM vk.order");
     mysqli_query($db['mysqli'], "DELETE FROM vk.transaction");
     mysqli_query($db['mysqli'], "DELETE FROM vk.transaction_user_balance");
+
+    Store_Cache_Truncate($db);
 }
 
 /**

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../errors.php';
+require_once  __DIR__ . '/orders_cache.php';
 
 /**
  * @param        $db
@@ -17,13 +18,13 @@ function Store_CreateOrder(&$db, string $price, int $customerId, string $name, s
         return false;
     }
 
-    $name = mysqli_real_escape_string($db['mysqli'], $name);
-    $description = mysqli_real_escape_string($db['mysqli'], $description);
-    $price = mysqli_real_escape_string($db['mysqli'], $price);
+    $nameEscaped = mysqli_real_escape_string($db['mysqli'], $name);
+    $descriptionEscaped = mysqli_real_escape_string($db['mysqli'], $description);
+    $priceEscaped = mysqli_real_escape_string($db['mysqli'], $price);
     $sql = "
         INSERT INTO 
         vk.order(name, description, creator_user_id, done, price) 
-        VALUES ('$name', '$description', $customerId, 0, $price)
+        VALUES ('$nameEscaped', '$descriptionEscaped', $customerId, 0, '$priceEscaped')
     ";
 
     $res = mysqli_query($db['mysqli'], $sql);
@@ -38,6 +39,16 @@ function Store_CreateOrder(&$db, string $price, int $customerId, string $name, s
         return false;
     }
 
+    Store_OrdersCache_SetOrder($db, $lastId, [
+        'id' => $lastId,
+        'name' => $name,
+        'description' => $description,
+        'creator_user_id' => $customerId,
+        'done' => false,
+        'price' => $price
+    ]);
+    Store_OrdersCache_InvalidateList($db);
+
     return $lastId;
 }
 
@@ -50,6 +61,11 @@ function Store_CreateOrder(&$db, string $price, int $customerId, string $name, s
  */
 function Store_GetOrders_NotDone(&$db, int $after, int $limit)
 {
+    $cacheRes = Store_OrdersCache_GetList($db, $after, $limit);
+    if ($cacheRes !== null) {
+        return $cacheRes;
+    }
+
     if (!Store_Connect_MySQL($db)) {
         return false;
     }
@@ -76,6 +92,8 @@ function Store_GetOrders_NotDone(&$db, int $after, int $limit)
         $order['creator_user_id'] = (int)$order['creator_user_id'];
     }
 
+    Store_OrdersCache_SetList($db, $after, $limit, $orders);
+
     return $orders;
 }
 
@@ -89,6 +107,10 @@ function Store_GetOrders_NotDone(&$db, int $after, int $limit)
  */
 function Store_GetOrder(&$db, int $id)
 {
+    $cacheRes = Store_OrdersCache_GetOrder($db, $id);
+    if ($cacheRes !== null) {
+        return $cacheRes;
+    }
     if (!Store_Connect_MySQL($db)) {
         return false;
     }
@@ -130,6 +152,9 @@ function Store_UpdateOrderDone(&$db, int $orderId, bool $done): bool
         Store_SetLastError(mysqli_error($db['mysqli']));
         return false;
     }
+
+    Store_OrdersCache_InvalidateOrder($db, $orderId);
+    Store_OrdersCache_InvalidateList($db);
 
     return true;
 }
