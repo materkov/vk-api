@@ -132,11 +132,14 @@ function Store_GetUserById(&$db, int $id)
         return false;
     }
 
-    return Store_GetUser_Do(
+    $user = Store_GetUser_Do(
         $db,
         "
             SELECT id, username, password_hash, balance, can_create_order, can_execute_order 
             FROM vk.user WHERE id = $id
         "
     );
+
+    Store_UsersCache_Set($db, $user['id'], $user);
+    return $user;
 }
