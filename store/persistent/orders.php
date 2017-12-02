@@ -129,6 +129,8 @@ function Store_GetOrder(&$db, int $id)
         $order['creator_user_id'] = (int)$order['creator_user_id'];
     }
 
+    Store_OrdersCache_SetOrder($db, $order['id'], $order);
+
     return $order;
 }
 
