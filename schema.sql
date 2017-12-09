@@ -18,14 +18,10 @@ CREATE TABLE transaction
   order_id INT(11) UNSIGNED NOT NULL,
   sum      DECIMAL(10, 2)   NOT NULL,
   finished TINYINT(1)       NOT NULL,
+  balance  DECIMAL(10, 2)   NOT NULL,
+  user_id  INT(11) UNSIGNED NOT NULL,
   CONSTRAINT transaction_order_id_uindex
   UNIQUE (order_id)
-);
-
-CREATE TABLE transaction_user_balance
-(
-  user_id INT(11) UNSIGNED NOT NULL PRIMARY KEY,
-  balance DECIMAL(10, 2)   NOT NULL
 );
 
 CREATE TABLE user

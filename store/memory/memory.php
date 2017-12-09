@@ -8,7 +8,6 @@ function Store_New_Memory()
         'users' => [],
         'orders' => [],
         'transactions' => [],
-        'transaction_user_balance' => [],
     ];
     return $storage;
 }
@@ -83,36 +82,33 @@ function Store_CreateTransaction(&$db, int $orderId, string $orderSum, int $user
             return STORAGE_ERR_TRANSACTION_EXISTS;
         }
     }
+    $lastBalance = '0.00';
+    foreach ($db['transactions'] as $transaction) {
+        if ($transaction['user_id'] == $userId) {
+            $lastBalance = $transaction['balance'];
+        }
+    }
     $db['transactions'][] = [
         'id' => rand(1, getrandmax()),
         'order_id' => $orderId,
         'sum' => $orderSum,
         'finished' => 0,
-    ];
-
-    foreach ($db['transaction_user_balance'] as $item) {
-        if ($item['user_id'] == $userId) {
-            $item['balance'] = bcadd($item['balance'], $orderSum);
-            return STORAGE_OK;
-        }
-    };
-
-    $db['transaction_user_balance'][] = [
-        'id' => rand(1, getrandmax()),
+        'balance' => bcadd($lastBalance, $orderSum),
         'user_id' => $userId,
-        'balance' => $orderSum,
     ];
+
     return STORAGE_OK;
 }
 
 function Store_GetTransactionUserBalance(&$db, int $userId): ?string
 {
-    foreach ($db['transaction_user_balance'] as $item) {
-        if ($item['user_id'] == $userId) {
-            return $item['balance'];
+    $lastBalance = '0.00';
+    foreach ($db['transactions'] as $transaction) {
+        if ($transaction['user_id'] == $userId) {
+            $lastBalance = $transaction['balance'];
         }
-    };
-    return '0.0';
+    }
+    return $lastBalance;
 }
 
 function Store_SaveUserBalance(&$db, int $userId, string $balance): bool

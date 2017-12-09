@@ -2,6 +2,8 @@
 
 require_once __DIR__ . '/../errors.php';
 
+const MysqlErrorDuplicateEntry = 1062;
+
 function Store_FlushTransactions(&$db)
 {
     if (!Store_Connect_MySQL($db)) {
@@ -11,7 +13,6 @@ function Store_FlushTransactions(&$db)
     mysqli_query($db['mysqli'], "DELETE FROM vk.user");
     mysqli_query($db['mysqli'], "DELETE FROM vk.order");
     mysqli_query($db['mysqli'], "DELETE FROM vk.transaction");
-    mysqli_query($db['mysqli'], "DELETE FROM vk.transaction_user_balance");
 
     Store_Cache_Truncate($db);
 }
@@ -31,46 +32,30 @@ function Store_CreateTransaction(&$db, int $orderId, string $orderSum, int $cont
         return false;
     }
 
-    Store_SetLastError(null);
-
-    $res = mysqli_begin_transaction($db['mysqli']);
-    if ($res === false) {
-        Store_SetLastError(mysqli_error($db['mysqli']));
-        return STORAGE_ERR_GENERAL;
-    }
-
-    $sql = "INSERT IGNORE INTO vk.transaction(order_id, `sum`, finished) VALUES ($orderId, $orderSum, 0)";
-    $res = mysqli_query($db['mysqli'], $sql);
-    if ($res === false) {
-        Store_SetLastError(mysqli_error($db['mysqli']));
-        return STORAGE_ERR_GENERAL;
-    }
-
-    $affectedRows = mysqli_affected_rows($db['mysqli']);
-    if ($affectedRows === 0) {
-        mysqli_rollback($db['mysqli']);
-        return STORAGE_ERR_TRANSACTION_EXISTS;
-    } elseif ($affectedRows === -1) {
-        mysqli_rollback($db['mysqli']);
-        return STORAGE_ERR_GENERAL;
-    }
-
-    $sql = "
-        INSERT INTO vk.transaction_user_balance(user_id, balance) VALUES ($contractorId, $orderSum) 
-        ON DUPLICATE KEY UPDATE balance = balance + $orderSum
+    $sql = "INSERT INTO vk.transaction (order_id, sum, finished, user_id, balance) 
+        VALUES
+        (
+            $orderId, $orderSum, 0, $contractorId, 
+            (
+                SELECT old_balance
+                FROM (
+                    SELECT COALESCE(
+                        (SELECT balance FROM vk.transaction WHERE user_id = $contractorId ORDER BY id DESC LIMIT 1),
+                        0
+                    ) AS old_balance
+                ) AS old_balance
+            ) + $orderSum
+        );
     ";
     $res = mysqli_query($db['mysqli'], $sql);
     if ($res === false) {
-        mysqli_rollback($db['mysqli']);
-        Store_SetLastError(mysqli_error($db['mysqli']));
-        return STORAGE_ERR_GENERAL;
-    }
-
-    $res = mysqli_commit($db['mysqli']);
-    if ($res === false) {
-        mysqli_rollback($db['mysqli']);
-        Store_SetLastError(mysqli_error($db['mysqli']));
-        return STORAGE_ERR_GENERAL;
+        $errNo = mysqli_errno($db['mysqli']);
+        if ($errNo == MysqlErrorDuplicateEntry) {
+            return STORAGE_ERR_TRANSACTION_EXISTS;
+        } else {
+            Store_SetLastError(mysqli_error($db['mysqli']));
+            return STORAGE_ERR_GENERAL;
+        }
     }
 
     return 0;
@@ -109,7 +94,12 @@ function Store_GetTransactionUserBalance(&$db, int $userId): ?string
         return false;
     }
 
-    $sql = "SELECT balance FROM vk.transaction_user_balance WHERE user_id = $userId";
+    $sql = "
+        SELECT COALESCE(
+            (SELECT balance FROM vk.transaction WHERE user_id = $userId ORDER BY id DESC LIMIT 1),
+            '0.00'
+        ) as balance
+     ";
     $res = mysqli_query($db['mysqli'], $sql);
     if ($res === false) {
         Store_SetLastError(mysqli_error($db['mysqli']));

@@ -107,24 +107,30 @@ php tests/store/test_usercache.php
 Таблица user содержит пользователей (id, юзернейм, bcrypt-хеш пароля, баланс, может ли создавать заказы, 
 может ли выполнять заказы)
 
-Таблицы transaction и transaction_user_balance должны находится на одной машине, так как между ними 
-используется транзакция.
+Таблица transaction используется для сохранения транзакций. 
 
 Предполагается, что таблицы могут находится на разных БД. То есть, есть три сервиса: сервис пользователей,
 сервис заказов, транзакционный сервис.
 
 Операция выполнения заказа состоит из нескольких шагов.
 
-Сначала идет работа транзакционного сервиса. Создание записи в transaction и transaction_user_balance:
+Сначала идет работа транзакционного сервиса. Создание записи в transaction:
 ```
-INSERT IGNORE INTO vk.transaction(...)
+INSERT INTO vk.transaction (order_id, sum, finished, user_id, balance) 
+        VALUES
+        (
+            $orderId, $orderSum, 0, $contractorId, 
+            (
+                SELECT old_balance
+                FROM (
+                    SELECT COALESCE(
+                        (SELECT balance FROM vk.transaction WHERE user_id = $contractorId ORDER BY id DESC LIMIT 1),
+                        0
+                    ) AS old_balance
+                ) AS old_balance
+            ) + $orderSum
+        );
 ```
-Если affected_rows == 1 (запись была добавлена), то выполняется еще одна операция:
-```
-INSERT INTO vk.transaction_user_balance(user_id, balance) VALUES (...) 
-ON DUPLICATE KEY UPDATE balance = balance + $orderSum
-```
-Две эти операции обернуты в транзакцию.
 
 После этого нужно обновить баланс пользователя (UPDATE ... в сервисе пользователей), 
 записав туда баланс из транзакционного сервиса.

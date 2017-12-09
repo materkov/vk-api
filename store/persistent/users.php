@@ -69,7 +69,7 @@ function Store_CreateUser(&$db, string $username, string $passwordHash, bool $ca
         'username' => $username,
         'password_hash' => $passwordHash,
         'balance' => '0.0',
-        'can_creaate_order' => $canCreateOrder,
+        'can_create_order' => $canCreateOrder,
         'can_execute_order' => $canExecuteOrder,
     ]);
 
